@@ -1,14 +1,16 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Meta.WitAi.Dictation;
 using Meta.WitAi;
 using Meta.WitAi.Events;
 using Oculus.Voice.Dictation;
+using Meta.WitAi.TTS.Utilities;
 
 
 
 public class HandleDictation : MonoBehaviour
 {
     public AppDictationExperience dictationService;
+    public TTSSpeaker speaker;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -31,6 +33,8 @@ public class HandleDictation : MonoBehaviour
     {
         Debug.Log("[AudioTranscription] Full: " + text);
         dictationService.Deactivate();
+
+        speaker.Speak("¡Hola! Tenemos tomates, lechuga y zanahorias hoy.");
 
         dictationService.Activate();
     }
