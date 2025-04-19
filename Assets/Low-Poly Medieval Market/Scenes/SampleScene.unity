@@ -5377,7 +5377,7 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
   runtimeConfiguration:
-    witConfiguration: {fileID: 11400000, guid: d45dd461d7e2d914eb960bed3aecbbea, type: 2}
+    witConfiguration: {fileID: 11400000, guid: 7781692b896be644b9dc0024c677d83b, type: 2}
     minKeepAliveVolume: 0.0005
     minKeepAliveTimeInSeconds: 2
     minTranscriptionKeepAliveTimeInSeconds: 1
@@ -15887,8 +15887,8 @@ MonoBehaviour:
         m_Calls: []
   PrependedText: 
   AppendedText: 
-  _ttsService: {fileID: 0}
-  presetVoiceID: WIT$BRITISH BUTLER
+  _ttsService: {fileID: 1819023543}
+  presetVoiceID: WIT$CAEL
   customWitVoiceSettings:
     SettingsId: 
     PrependedText: 
