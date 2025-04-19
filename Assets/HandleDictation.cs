@@ -12,57 +12,157 @@ using UnityEditor.Compilation;
 using UnityEditor.PackageManager;
 using System.Collections;
 
+//public class HandleDictation : MonoBehaviour
+//{
+//    [Header("Services & References")]
+//    public AppDictationExperience dictationService;
+//    public TTSSpeaker speaker;
+//    public Animator vendorAnimator;    // your “Talking” trigger lives here
 
+//    bool playerInRange = false;
+
+//    void Start()
+//    {
+//        dictationService.DictationEvents
+//            .OnFullTranscription.AddListener(OnFullTranscription);
+
+//        speaker.Events
+//            .OnPlaybackComplete.AddListener(OnSpeakingCompleted);
+
+//        dictationService.Deactivate();
+//    }
+
+//    // **new** public method for your button
+//    public void OnSpeakButtonPressed()
+//    {
+//        if (!dictationService.Active && playerInRange)
+//        {
+//            vendorAnimator.SetTrigger("Talking");
+//            dictationService.Activate();
+//        }
+//    }
+
+//    private void OnFullTranscription(string text)
+//    {
+//        dictationService.Deactivate();
+//        StartCoroutine(RunGemini(text));
+//    }
+
+//    private void OnSpeakingCompleted(TTSSpeaker s, TTSClipData clip)
+//    {
+//        vendorAnimator.ResetTrigger("Talking");
+//        // Optionally re‑enable the button or any prompt you have
+//    }
+
+//    private IEnumerator RunGemini(string userPrompt)
+//    {
+//        string response = null;
+//        bool isDone = false;
+
+//        string systemPrompt = "I want all responses to be in Spanish. You are a language tutor who aims to teach Spanish to students by simulating an interaction in the farmer's market. Imagine you are the farmer. First respond in very simple spanish, and then explain if the grammer of the user was incorrect only then explain in English. Keep responses brief, as if you are actually talking to the person. These responses will be fed to a text to speech system directly.";
+
+//        var apiKey = "AIzaSyBEqPf_jpFRAkN2K6URpCVjoon6JkWQCc0";
+
+//        var client = new GeminiClient(apiKey);
+
+//        Task.Run(async () =>
+//        {
+//            try
+//            {
+//                response = await client.GenerateResponseAsync(userPrompt, systemPrompt);
+//            }
+//            catch (Exception ex)
+//            {
+//                response = "Error: " + ex.Message;
+//                dictationService.Activate();
+//            }
+
+//            isDone = true;
+//        });
+
+//        while (!isDone)
+//            yield return null;
+
+//        // ✅ Back on main thread: now do something
+//        Debug.Log("Gemini Response:\n" + response);
+//        speaker.Speak(response);
+
+//    }
+
+//    private void OnTriggerEnter(Collider other)
+//    {
+//        if (other.CompareTag("Player"))
+//            playerInRange = true;
+//    }
+
+//    private void OnTriggerExit(Collider other)
+//    {
+//        if (other.CompareTag("Player"))
+//            playerInRange = false;
+//    }
+//}
 
 public class HandleDictation : MonoBehaviour
 {
+    [Header("Assign in Inspector")]
     public AppDictationExperience dictationService;
     public TTSSpeaker speaker;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    public Animator vendorAnimator;   // your "Talking" trigger parameter
+
+    bool playerInRange = false;
+
     void Start()
     {
-        //dictationService = GetComponent<AppDictationExperience>();
-        dictationService = GetComponent<AppDictationExperience>();
-        if (dictationService == null )
-        {
-            Debug.LogError("[AudioTranscription] DictationService not found");
-            return;
-        }
-        if (speaker == null)
-        {
-            Debug.LogError("[AudioTranscription] Speaker not found");
-            return;
-        }
-
-
+        vendorAnimator = GetComponent<Animator>();
+        Debug.Log("[AnimatorPrint]" + vendorAnimator.ToString());
+        // Hook up events
         dictationService.DictationEvents.OnFullTranscription.AddListener(OnFullTranscription);
-        // Update the event listener to use the corrected method.
         speaker.Events.OnPlaybackComplete.AddListener(OnSpeakingCompleted);
-        //dictationService.DictationEvents.OnPartialTranscription.AddListener(OnPartialTranscription);
 
+        // Start with dictation off
+        dictationService.Deactivate();
+    }
 
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = true;
+            // start listening & talking animation immediately
+            vendorAnimator.SetTrigger("Talking");
+            dictationService.Activate();
+        }
+    }
 
-        dictationService.Activate();
-
-        Debug.Log("[AudioTranscription] Activated");
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = false;
+            // stop listening & reset animation
+            dictationService.Deactivate();
+            vendorAnimator.ResetTrigger("Talking");
+        }
     }
 
     private void OnFullTranscription(string text)
     {
-        Debug.Log("[AudioTranscription] Full: " + text);
+        // got user text → stop mic, send to LLM
         dictationService.Deactivate();
         StartCoroutine(RunGemini(text));
-
     }
 
-    // Fix for CS1503: The issue is that the method `OnSpeakingCompleted` does not match the expected signature of the event listener.
-    // The `OnPlaybackComplete` event expects a method with the signature `void MethodName(TTSSpeaker speaker, TTSClipData clipData)`.
-    // Update the `OnSpeakingCompleted` method to match the expected signature.
-
-    private void OnSpeakingCompleted(TTSSpeaker speaker, TTSClipData clipData)
+    private void OnSpeakingCompleted(TTSSpeaker s, TTSClipData clip)
     {
-        Debug.Log("[AudioTranscription] Speaking completed");
-        dictationService.Activate();
+        // when TTS finishes, reset talking anim
+        //vendorAnimator.ResetTrigger("Talking");
+
+        // if player is still in range, start another listen cycle
+        if (playerInRange)
+        {
+            vendorAnimator.SetTrigger("Talking");
+            dictationService.Activate();
+        }
     }
 
     private IEnumerator RunGemini(string userPrompt)
@@ -99,5 +199,4 @@ public class HandleDictation : MonoBehaviour
         speaker.Speak(response);
 
     }
-
 }
