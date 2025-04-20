@@ -11,96 +11,8 @@ using System;
 using UnityEditor.Compilation;
 using UnityEditor.PackageManager;
 using System.Collections;
+using System.Collections.Generic;
 
-//public class HandleDictation : MonoBehaviour
-//{
-//    [Header("Services & References")]
-//    public AppDictationExperience dictationService;
-//    public TTSSpeaker speaker;
-//    public Animator vendorAnimator;    // your “Talking” trigger lives here
-
-//    bool playerInRange = false;
-
-//    void Start()
-//    {
-//        dictationService.DictationEvents
-//            .OnFullTranscription.AddListener(OnFullTranscription);
-
-//        speaker.Events
-//            .OnPlaybackComplete.AddListener(OnSpeakingCompleted);
-
-//        dictationService.Deactivate();
-//    }
-
-//    // **new** public method for your button
-//    public void OnSpeakButtonPressed()
-//    {
-//        if (!dictationService.Active && playerInRange)
-//        {
-//            vendorAnimator.SetTrigger("Talking");
-//            dictationService.Activate();
-//        }
-//    }
-
-//    private void OnFullTranscription(string text)
-//    {
-//        dictationService.Deactivate();
-//        StartCoroutine(RunGemini(text));
-//    }
-
-//    private void OnSpeakingCompleted(TTSSpeaker s, TTSClipData clip)
-//    {
-//        vendorAnimator.ResetTrigger("Talking");
-//        // Optionally re‑enable the button or any prompt you have
-//    }
-
-//    private IEnumerator RunGemini(string userPrompt)
-//    {
-//        string response = null;
-//        bool isDone = false;
-
-//        string systemPrompt = "I want all responses to be in Spanish. You are a language tutor who aims to teach Spanish to students by simulating an interaction in the farmer's market. Imagine you are the farmer. First respond in very simple spanish, and then explain if the grammer of the user was incorrect only then explain in English. Keep responses brief, as if you are actually talking to the person. These responses will be fed to a text to speech system directly.";
-
-//        var apiKey = "AIzaSyBEqPf_jpFRAkN2K6URpCVjoon6JkWQCc0";
-
-//        var client = new GeminiClient(apiKey);
-
-//        Task.Run(async () =>
-//        {
-//            try
-//            {
-//                response = await client.GenerateResponseAsync(userPrompt, systemPrompt);
-//            }
-//            catch (Exception ex)
-//            {
-//                response = "Error: " + ex.Message;
-//                dictationService.Activate();
-//            }
-
-//            isDone = true;
-//        });
-
-//        while (!isDone)
-//            yield return null;
-
-//        // ✅ Back on main thread: now do something
-//        Debug.Log("Gemini Response:\n" + response);
-//        speaker.Speak(response);
-
-//    }
-
-//    private void OnTriggerEnter(Collider other)
-//    {
-//        if (other.CompareTag("Player"))
-//            playerInRange = true;
-//    }
-
-//    private void OnTriggerExit(Collider other)
-//    {
-//        if (other.CompareTag("Player"))
-//            playerInRange = false;
-//    }
-//}
 
 public class HandleDictation : MonoBehaviour
 {
@@ -109,7 +21,9 @@ public class HandleDictation : MonoBehaviour
     public TTSSpeaker speaker;
     public Animator vendorAnimator;   // your "Talking" trigger parameter
 
+    private List<GeminiMessage> conversationHistory = new();
     bool playerInRange = false;
+    bool isProcessing = false;
 
     void Start()
     {
@@ -128,8 +42,6 @@ public class HandleDictation : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
-            // start listening & talking animation immediately
-            vendorAnimator.SetTrigger("Talking");
             dictationService.Activate();
         }
     }
@@ -139,16 +51,17 @@ public class HandleDictation : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
-            // stop listening & reset animation
             dictationService.Deactivate();
-            vendorAnimator.ResetTrigger("Talking");
+            // stop listening & reset animation
         }
     }
 
     private void OnFullTranscription(string text)
     {
         // got user text → stop mic, send to LLM
+        isProcessing = true;
         dictationService.Deactivate();
+        Debug.Log(text);
         StartCoroutine(RunGemini(text));
     }
 
@@ -158,19 +71,46 @@ public class HandleDictation : MonoBehaviour
         //vendorAnimator.ResetTrigger("Talking");
 
         // if player is still in range, start another listen cycle
+        Debug.Log("Speaking completed");
         if (playerInRange)
         {
-            vendorAnimator.SetTrigger("Talking");
+            vendorAnimator.ResetTrigger("Talking");
             dictationService.Activate();
+            isProcessing = false;
         }
     }
+
+    //private void Update()
+    //{
+    //    if (OVRInput.Get(OVRInput.Button.Two))
+    //    {
+    //        Debug.Log("Button pressed");
+    //    }
+    //    // if player is in range, not already processing, and button is held down, start listening
+    //    if (playerInRange && !isProcessing && OVRInput.Get(OVRInput.Button.One))
+    //    {
+    //        if (!dictationService.isActiveAndEnabled)
+    //        {
+    //            dictationService.Activate();
+    //            Debug.Log("Dictation activated");
+    //        }
+    //    }
+    //    else
+    //    {
+    //        if (dictationService.isActiveAndEnabled)
+    //        {
+    //            dictationService.Deactivate();
+    //            Debug.Log("Dictation deactivated");
+    //        }
+    //    }
+    //}
 
     private IEnumerator RunGemini(string userPrompt)
     {
         string response = null;
         bool isDone = false;
 
-        string systemPrompt = "I want all responses to be in Spanish. You are a language tutor who aims to teach Spanish to students by simulating an interaction in the farmer's market. Imagine you are the farmer. First respond in very simple spanish, and then explain if the grammer of the user was incorrect only then explain in English. Keep responses brief, as if you are actually talking to the person. These responses will be fed to a text to speech system directly.";
+        string systemPrompt = "I want all responses to be in Spanish. You are a language tutor who aims to teach Spanish to students by simulating an interaction in the farmer's market. Imagine you are the farmer. First respond in very simple spanish, and then explain if the grammer of the user was incorrect only then explain in English. Keep responses brief, as if you are actually talking to the person. You should not speak more than one or two sentences. At max 250 characters. These responses will be fed to a text to speech system directly. Do not have markdown elements in the response.";
 
         var apiKey = "AIzaSyBEqPf_jpFRAkN2K6URpCVjoon6JkWQCc0";
 
@@ -180,12 +120,33 @@ public class HandleDictation : MonoBehaviour
         {
             try
             {
-                response = await client.GenerateResponseAsync(userPrompt, systemPrompt);
+                conversationHistory.Add(new GeminiMessage
+                {
+                    Role = "user",
+                    Parts = new List<Part>
+                    {
+                        new() { text = userPrompt }
+                    }
+                });
+
+                var geminiResponse = await client.GenerateResponseAsync(conversationHistory, systemPrompt);
+                response = geminiResponse?.candidates?[0]?.content?.parts?[0]?.text ?? "No response text found.";
+                if (response != "No response text found.")
+                {
+                    conversationHistory.Add(new GeminiMessage
+                    {
+                        Role = "model",
+                        Parts = new List<Part>
+                        {
+                            new() { text = response }
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {
-                response = "Error: " + ex.Message;
-                dictationService.Activate();
+                response = "Some error occurred, please try again.";
+                Debug.LogError("Gemini API Error: " + ex.Message);
             }
 
             isDone = true;
@@ -194,9 +155,16 @@ public class HandleDictation : MonoBehaviour
         while (!isDone)
             yield return null;
 
-        // ✅ Back on main thread: now do something
         Debug.Log("Gemini Response:\n" + response);
-        speaker.Speak(response);
-
+        try
+        {
+            Debug.Log("Speaking Now");
+            vendorAnimator.SetTrigger("Talking");
+            speaker.Speak(response);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("Error playing TTS: " + ex.Message);
+        }
     }
 }

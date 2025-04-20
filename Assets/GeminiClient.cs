@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,24 +17,40 @@ public class GeminiClient
         _endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-thinking-exp-01-21:generateContent?key={apiKey}";
     }
 
-    public async Task<string> GenerateResponseAsync(string userPrompt, string systemPrompt = null)
+    public async Task<GeminiResponse> GenerateResponseAsync(List<GeminiMessage> conversation, string systemPrompt = null)
     {
-        var parts = new[]
+        var contents = new List<object>();
+
+        foreach (var message in conversation)
         {
-            new { text = systemPrompt ?? string.Empty },
-            new { text = userPrompt }
+            var partsList = new List<object>();
+            foreach (var part in message.Parts)
+            {
+                partsList.Add(new { text = part.text });
+            }
+
+            contents.Add(new
+            {
+                role = message.Role,
+                parts = partsList
+            });
+        }
+
+        var requestBody = new Dictionary<string, object>
+        {
+            { "contents", contents }
         };
 
-        var requestBody = new
+        if (!string.IsNullOrWhiteSpace(systemPrompt))
         {
-            contents = new[]
+            requestBody["system_instruction"] = new
             {
-                new
+                parts = new List<object>
                 {
-                    parts = parts
+                    new { text = systemPrompt }
                 }
-            }
-        };
+            };
+        }
 
         var json = JsonConvert.SerializeObject(requestBody);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -49,7 +66,7 @@ public class GeminiClient
         var responseJson = await response.Content.ReadAsStringAsync();
         var geminiResponse = JsonConvert.DeserializeObject<GeminiResponse>(responseJson);
 
-        return geminiResponse?.candidates?[0]?.content?.parts?[0]?.text ?? "No response text found.";
+        return geminiResponse;
     }
 }
 
@@ -76,4 +93,11 @@ public class Content
 public class Part
 {
     public string text;
+}
+
+[Serializable]
+public class GeminiMessage
+{
+    public string Role; // e.g., "user", "model", "system"
+    public List<Part> Parts;
 }
